@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serverless Workshop</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; max-width: 900px; margin: 0 auto; }
+    h1 { text-align: center; margin-bottom: 20px; }
+    h2 { margin-bottom: 10px; color: #333; }
+
+    .section { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+    label { display: block; font-weight: bold; margin-top: 10px; font-size: 14px; }
+    input, textarea { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+
+    .btn-row { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+    button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; color: #fff; }
+    .btn-create { background: #2ecc71; }
+    .btn-get { background: #3498db; }
+    .btn-update { background: #f39c12; }
+    .btn-delete { background: #e74c3c; }
+    .btn-toggle { background: #9b59b6; }
+    button:hover { opacity: 0.85; }
+
+    .response-box { margin-top: 12px; background: #1e1e1e; color: #0f0; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto; }
+
+    .user-card, .list-card { background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-top: 8px; }
+    .user-card span, .list-card span { font-size: 13px; color: #666; }
+
+    .item-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+    .item-row.done span { text-decoration: line-through; color: #999; }
+  </style>
+</head>
+<body>
+
+<h1>Serverless Workshop</h1>
+
+<!-- ===================== USERS ===================== -->
+<div class="section">
+  <h2>Users</h2>
+
+  <label>Name</label>
+  <input type="text" id="userName" placeholder="Jose Guzman">
+
+  <label>Email</label>
+  <input type="email" id="userEmail" placeholder="jose@example.com">
+
+  <label>User ID (for get / update / delete)</label>
+  <input type="text" id="userId" placeholder="paste userId here">
+
+  <div class="btn-row">
+    <button class="btn-create" onclick="createUser()">Create User</button>
+    <button class="btn-get" onclick="getUser()">Get User</button>
+    <button class="btn-update" onclick="updateUser()">Update User</button>
+    <button class="btn-delete" onclick="deleteUser()">Delete User</button>
+  </div>
+
+  <div id="userResponse" class="response-box" hidden></div>
+</div>
+
+<!-- ===================== LISTS ===================== -->
+<div class="section">
+  <h2>Lists</h2>
+
+  <label>User ID (owner)</label>
+  <input type="text" id="listUserId" placeholder="paste userId here">
+
+  <label>List ID (for get / update / delete)</label>
+  <input type="text" id="listId" placeholder="paste listId here">
+
+  <label>List Name</label>
+  <input type="text" id="listName" placeholder="Groceries">
+
+  <label>Description</label>
+  <input type="text" id="listDesc" placeholder="Weekly shopping list">
+
+  <div class="btn-row">
+    <button class="btn-create" onclick="createList()">Create List</button>
+    <button class="btn-get" onclick="getListsForUser()">Get All Lists</button>
+    <button class="btn-get" onclick="getList()">Get Single List</button>
+    <button class="btn-delete" onclick="deleteList()">Delete List</button>
+  </div>
+
+  <div id="listResponse" class="response-box" hidden></div>
+</div>
+
+<!-- ===================== LIST ITEMS ===================== -->
+<div class="section">
+  <h2>List Items</h2>
+
+  <label>New Item Text</label>
+  <input type="text" id="newItemText" placeholder="Buy milk">
+
+  <div class="btn-row">
+    <button class="btn-create" onclick="addItem()">Add Item</button>
+    <button class="btn-get" onclick="refreshList()">Refresh List</button>
+  </div>
+
+  <div id="itemsContainer"></div>
+  <div id="itemResponse" class="response-box" hidden></div>
+</div>
+
+<script>
+  const BASE_URL = "https://tl9fepawbe.execute-api.us-east-1.amazonaws.com/develop";
+
+  // ----- Helper -----
+  async function api(method, path, body) {
+    const options = {
+      method,
+      headers: { "Content-Type": "application/json" },
+    };
+    if (body) options.body = JSON.stringify(body);
+
+    const res = await fetch(BASE_URL + path, options);
+    const data = await res.json();
+    return data;
+  }
+
+  function show(boxId, data) {
+    const box = document.getElementById(boxId);
+    box.hidden = false;
+    box.textContent = JSON.stringify(data, null, 2);
+  }
+
+  // ----- Users -----
+  async function createUser() {
+    const name = document.getElementById("userName").value;
+    const email = document.getElementById("userEmail").value;
+    const data = await api("POST", "/users", { name, email });
+    show("userResponse", data);
+    if (data.user) document.getElementById("userId").value = data.user.userId;
+  }
+
+  async function getUser() {
+    const id = document.getElementById("userId").value;
+    const data = await api("GET", "/users/" + id);
+    show("userResponse", data);
+  }
+
+  async function updateUser() {
+    const id = document.getElementById("userId").value;
+    const name = document.getElementById("userName").value;
+    const email = document.getElementById("userEmail").value;
+    const data = await api("PUT", "/users/" + id, { name, email });
+    show("userResponse", data);
+  }
+
+  async function deleteUser() {
+    const id = document.getElementById("userId").value;
+    const data = await api("DELETE", "/users/" + id);
+    show("userResponse", data);
+  }
+
+  // ----- Lists -----
+  async function createList() {
+    const userId = document.getElementById("listUserId").value;
+    const name = document.getElementById("listName").value;
+    const description = document.getElementById("listDesc").value;
+    const data = await api("POST", "/users/" + userId + "/lists", { name, description });
+    show("listResponse", data);
+    if (data.list) document.getElementById("listId").value = data.list.listId;
+  }
+
+  async function getListsForUser() {
+    const userId = document.getElementById("listUserId").value;
+    const data = await api("GET", "/users/" + userId + "/lists");
+    show("listResponse", data);
+  }
+
+  async function getList() {
+    const userId = document.getElementById("listUserId").value;
+    const listId = document.getElementById("listId").value;
+    const data = await api("GET", "/users/" + userId + "/lists/" + listId);
+    show("listResponse", data);
+    if (data.list) renderItems(data.list.items || {});
+  }
+
+  async function deleteList() {
+    const userId = document.getElementById("listUserId").value;
+    const listId = document.getElementById("listId").value;
+    const data = await api("DELETE", "/users/" + userId + "/lists/" + listId);
+    show("listResponse", data);
+  }
+
+  // ----- Items -----
+  let currentItems = {};
+
+  function renderItems(items) {
+    currentItems = items;
+    const container = document.getElementById("itemsContainer");
+    container.innerHTML = "";
+
+    const keys = Object.keys(items).sort((a, b) => Number(a) - Number(b));
+    if (keys.length === 0) {
+      container.innerHTML = "<p style='margin-top:10px;color:#999;'>No items yet.</p>";
+      return;
+    }
+
+    keys.forEach(key => {
+      const item = items[key];
+      const row = document.createElement("div");
+      row.className = "item-row" + (item.done ? " done" : "");
+      row.innerHTML =
+        '<button class="btn-toggle" onclick="toggleItem(\'' + key + '\')">' +
+        (item.done ? "Undo" : "Done") + '</button>' +
+        '<span><strong>' + key + '.</strong> ' + item.text + '</span>';
+      container.appendChild(row);
+    });
+  }
+
+  async function toggleItem(itemKey) {
+    const userId = document.getElementById("listUserId").value;
+    const listId = document.getElementById("listId").value;
+    const data = await api("PATCH", "/users/" + userId + "/lists/" + listId + "/items/" + itemKey);
+    show("itemResponse", data);
+    if (data.list) renderItems(data.list.items || {});
+  }
+
+  async function addItem() {
+    const text = document.getElementById("newItemText").value;
+    if (!text) return;
+
+    // Figure out the next item key
+    const keys = Object.keys(currentItems);
+    const nextKey = keys.length === 0 ? "1" : String(Math.max(...keys.map(Number)) + 1);
+
+    // Add the new item to the current items and update the whole list
+    currentItems[nextKey] = { text: text, done: false };
+
+    const userId = document.getElementById("listUserId").value;
+    const listId = document.getElementById("listId").value;
+    const name = document.getElementById("listName").value;
+    const description = document.getElementById("listDesc").value;
+
+    const data = await api("PUT", "/users/" + userId + "/lists/" + listId, {
+      name, description, items: currentItems
+    });
+    show("itemResponse", data);
+    if (data.list) renderItems(data.list.items || {});
+    document.getElementById("newItemText").value = "";
+  }
+
+  async function refreshList() {
+    const userId = document.getElementById("listUserId").value;
+    const listId = document.getElementById("listId").value;
+    if (!userId || !listId) return;
+    const data = await api("GET", "/users/" + userId + "/lists/" + listId);
+    show("itemResponse", data);
+    if (data.list) {
+      document.getElementById("listName").value = data.list.name || "";
+      document.getElementById("listDesc").value = data.list.description || "";
+      renderItems(data.list.items || {});
+    }
+  }
+</script>
+
+</body>
+</html>

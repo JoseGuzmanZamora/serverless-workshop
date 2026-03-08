@@ -160,10 +160,13 @@ def resolve_route(method: str, path: str):
         return None
 
 
-def handler(event: dict, context) -> dict:
+def lambda_handler(event: dict, context) -> dict:
     """Lambda entry point."""
-    method = event.get("httpMethod", "")
-    path = event.get("path", "")
+    method = event.get("requestContext", {}).get("http", {}).get("method", "")
+    path = event.get("rawPath", "")
+    stage = event.get("requestContext", {}).get("stage", "")
+    if stage and path.startswith(f"/{stage}"):
+        path = path[len(f"/{stage}"):]
 
     logger.info("Received %s %s", method, path)
 

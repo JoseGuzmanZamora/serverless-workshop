@@ -2,6 +2,7 @@ import json
 import uuid
 import logging
 import boto3
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
@@ -35,11 +36,15 @@ def parse_body(event: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def create_list(event: dict) -> dict:
-    """POST /lists — create a new list."""
+    """POST /users/{userId}/lists — create a new list for a user."""
+    user_id = (event.get("pathParameters") or {}).get("userId")
     body = parse_body(event)
 
     name = body.get("name", "").strip()
     description = body.get("description", "").strip()
+
+    if not user_id:
+        return response(400, {"error": "'userId' path parameter is required."})
 
     if not name:
         return response(400, {"error": "'name' is required."})
@@ -47,6 +52,7 @@ def create_list(event: dict) -> dict:
     list_id = str(uuid.uuid4())
 
     item = {
+        "userId": user_id,
         "listId": list_id,
         "name": name,
         "description": description,
@@ -54,29 +60,43 @@ def create_list(event: dict) -> dict:
     }
 
     try:
-        table.put_item(
-            Item=item,
-            ConditionExpression="attribute_not_exists(listId)",
-        )
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            return response(409, {"error": "List already exists."})
+        table.put_item(Item=item)
+    except ClientError:
         logger.exception("DynamoDB put_item failed")
         return response(500, {"error": "Failed to create list."})
 
-    logger.info("Created list %s", list_id)
+    logger.info("Created list %s for user %s", list_id, user_id)
     return response(201, {"message": "List created.", "list": item})
 
 
-def get_list(event: dict) -> dict:
-    """GET /lists/{listId} — fetch a single list."""
-    list_id = (event.get("pathParameters") or {}).get("listId")
+def get_lists_for_user(event: dict) -> dict:
+    """GET /users/{userId}/lists — fetch all lists for a user."""
+    user_id = (event.get("pathParameters") or {}).get("userId")
 
-    if not list_id:
-        return response(400, {"error": "'listId' path parameter is required."})
+    if not user_id:
+        return response(400, {"error": "'userId' path parameter is required."})
 
     try:
-        result = table.get_item(Key={"listId": list_id})
+        result = table.query(
+            KeyConditionExpression=Key("userId").eq(user_id),
+        )
+    except ClientError:
+        logger.exception("DynamoDB query failed")
+        return response(500, {"error": "Failed to retrieve lists."})
+
+    return response(200, {"lists": result.get("Items", [])})
+
+
+def get_list(event: dict) -> dict:
+    """GET /users/{userId}/lists/{listId} — fetch a single list."""
+    user_id = (event.get("pathParameters") or {}).get("userId")
+    list_id = (event.get("pathParameters") or {}).get("listId")
+
+    if not user_id or not list_id:
+        return response(400, {"error": "'userId' and 'listId' path parameters are required."})
+
+    try:
+        result = table.get_item(Key={"userId": user_id, "listId": list_id})
     except ClientError:
         logger.exception("DynamoDB get_item failed")
         return response(500, {"error": "Failed to retrieve list."})
@@ -89,11 +109,12 @@ def get_list(event: dict) -> dict:
 
 
 def update_list(event: dict) -> dict:
-    """PUT /lists/{listId} — update a list's name, description, and items."""
+    """PUT /users/{userId}/lists/{listId} — update a list's name, description, and items."""
+    user_id = (event.get("pathParameters") or {}).get("userId")
     list_id = (event.get("pathParameters") or {}).get("listId")
 
-    if not list_id:
-        return response(400, {"error": "'listId' path parameter is required."})
+    if not user_id or not list_id:
+        return response(400, {"error": "'userId' and 'listId' path parameters are required."})
 
     body = parse_body(event)
     name = body.get("name", "").strip()
@@ -116,9 +137,9 @@ def update_list(event: dict) -> dict:
 
     try:
         result = table.update_item(
-            Key={"listId": list_id},
-            UpdateExpression="SET #n = :name, description = :description, items = :items",
-            ExpressionAttributeNames={"#n": "name"},
+            Key={"userId": user_id, "listId": list_id},
+            UpdateExpression="SET #n = :name, description = :description, #i = :items",
+            ExpressionAttributeNames={"#n": "name", "#i": "items"},
             ExpressionAttributeValues={
                 ":name": name,
                 ":description": description,
@@ -138,16 +159,17 @@ def update_list(event: dict) -> dict:
 
 
 def toggle_item(event: dict) -> dict:
-    """PATCH /lists/{listId}/items/{itemKey} — toggle an item's done status."""
+    """PATCH /users/{userId}/lists/{listId}/items/{itemKey} — toggle an item's done status."""
+    user_id = (event.get("pathParameters") or {}).get("userId")
     list_id = (event.get("pathParameters") or {}).get("listId")
     item_key = (event.get("pathParameters") or {}).get("itemKey")
 
-    if not list_id or not item_key:
-        return response(400, {"error": "'listId' and 'itemKey' path parameters are required."})
+    if not user_id or not list_id or not item_key:
+        return response(400, {"error": "'userId', 'listId', and 'itemKey' path parameters are required."})
 
     # First, get the current list to read the item's done value
     try:
-        result = table.get_item(Key={"listId": list_id})
+        result = table.get_item(Key={"userId": user_id, "listId": list_id})
     except ClientError:
         logger.exception("DynamoDB get_item failed")
         return response(500, {"error": "Failed to retrieve list."})
@@ -167,9 +189,9 @@ def toggle_item(event: dict) -> dict:
     # Update just that item's done field in DynamoDB
     try:
         result = table.update_item(
-            Key={"listId": list_id},
-            UpdateExpression="SET items.#key.done = :done",
-            ExpressionAttributeNames={"#key": item_key},
+            Key={"userId": user_id, "listId": list_id},
+            UpdateExpression="SET #i.#key.done = :done",
+            ExpressionAttributeNames={"#i": "items", "#key": item_key},
             ExpressionAttributeValues={":done": new_done},
             ReturnValues="ALL_NEW",
         )
@@ -182,15 +204,16 @@ def toggle_item(event: dict) -> dict:
 
 
 def delete_list(event: dict) -> dict:
-    """DELETE /lists/{listId} — delete a list."""
+    """DELETE /users/{userId}/lists/{listId} — delete a list."""
+    user_id = (event.get("pathParameters") or {}).get("userId")
     list_id = (event.get("pathParameters") or {}).get("listId")
 
-    if not list_id:
-        return response(400, {"error": "'listId' path parameter is required."})
+    if not user_id or not list_id:
+        return response(400, {"error": "'userId' and 'listId' path parameters are required."})
 
     try:
         table.delete_item(
-            Key={"listId": list_id},
+            Key={"userId": user_id, "listId": list_id},
             ConditionExpression="attribute_exists(listId)",
         )
     except ClientError as e:
@@ -209,24 +232,35 @@ def delete_list(event: dict) -> dict:
 
 def resolve_route(method: str, path: str):
     """Match the incoming method + path to the right handler function."""
-    if method == "POST" and path == "/lists":
+    # POST /users/{userId}/lists
+    if method == "POST" and path.endswith("/lists"):
         return create_list
-    elif method == "GET" and path.startswith("/lists/"):
+    # GET /users/{userId}/lists
+    elif method == "GET" and path.endswith("/lists"):
+        return get_lists_for_user
+    # GET /users/{userId}/lists/{listId}
+    elif method == "GET" and "/lists/" in path and "/items/" not in path:
         return get_list
-    elif method == "PUT" and path.startswith("/lists/"):
+    # PUT /users/{userId}/lists/{listId}
+    elif method == "PUT" and "/lists/" in path:
         return update_list
+    # PATCH /users/{userId}/lists/{listId}/items/{itemKey}
     elif method == "PATCH" and "/items/" in path:
         return toggle_item
-    elif method == "DELETE" and path.startswith("/lists/"):
+    # DELETE /users/{userId}/lists/{listId}
+    elif method == "DELETE" and "/lists/" in path:
         return delete_list
     else:
         return None
 
 
-def handler(event: dict, context) -> dict:
+def lambda_handler(event: dict, context) -> dict:
     """Lambda entry point."""
-    method = event.get("httpMethod", "")
-    path = event.get("path", "")
+    method = event.get("requestContext", {}).get("http", {}).get("method", "")
+    path = event.get("rawPath", "")
+    stage = event.get("requestContext", {}).get("stage", "")
+    if stage and path.startswith(f"/{stage}"):
+        path = path[len(f"/{stage}"):]
 
     logger.info("Received %s %s", method, path)
 

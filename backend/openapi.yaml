@@ -1,0 +1,223 @@
+openapi: "3.0.1"
+info:
+  title: "Serverless API"
+  version: "1.0.0"
+
+paths:
+  # -----------------------------------------------------------------------
+  # Users
+  # -----------------------------------------------------------------------
+  /users:
+    post:
+      summary: Create a new user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+      responses:
+        "201":
+          description: User created
+
+  /users/{userId}:
+    get:
+      summary: Get a user
+      operationId: getUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User found
+
+    put:
+      summary: Update a user
+      operationId: updateUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+      responses:
+        "200":
+          description: User updated
+
+    delete:
+      summary: Delete a user
+      operationId: deleteUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User deleted
+
+  # -----------------------------------------------------------------------
+  # Lists
+  # -----------------------------------------------------------------------
+  /users/{userId}/lists:
+    post:
+      summary: Create a new list for a user
+      operationId: createList
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        "201":
+          description: List created
+
+    get:
+      summary: Get all lists for a user
+      operationId: getListsForUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lists retrieved
+
+  /users/{userId}/lists/{listId}:
+    get:
+      summary: Get a single list
+      operationId: getList
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List found
+
+    put:
+      summary: Update a list
+      operationId: updateList
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                items:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    required: [text, done]
+                    properties:
+                      text:
+                        type: string
+                      done:
+                        type: boolean
+      responses:
+        "200":
+          description: List updated
+
+    delete:
+      summary: Delete a list
+      operationId: deleteList
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List deleted
+
+  /users/{userId}/lists/{listId}/items/{itemKey}:
+    patch:
+      summary: Toggle an item's done status
+      operationId: toggleItem
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Item toggled

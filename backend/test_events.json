@@ -1,0 +1,82 @@
+{
+  "users": {
+    "create_user": {
+      "httpMethod": "POST",
+      "path": "/users",
+      "body": "{\"name\": \"Jose Guzman\", \"email\": \"jose@example.com\"}"
+    },
+    "get_user": {
+      "httpMethod": "GET",
+      "path": "/users/631d4eb5-5ee4-43d2-839e-32e1e52e05ef",
+      "pathParameters": {
+        "userId": "631d4eb5-5ee4-43d2-839e-32e1e52e05ef"
+      }
+    },
+    "update_user": {
+      "httpMethod": "PUT",
+      "path": "/users/631d4eb5-5ee4-43d2-839e-32e1e52e05ef",
+      "pathParameters": {
+        "userId": "631d4eb5-5ee4-43d2-839e-32e1e52e05ef"
+      },
+      "body": "{\"name\": \"Jose Updated\", \"email\": \"jose.updated@example.com\"}"
+    },
+    "delete_user": {
+      "httpMethod": "DELETE",
+      "path": "/users/631d4eb5-5ee4-43d2-839e-32e1e52e05ef",
+      "pathParameters": {
+        "userId": "631d4eb5-5ee4-43d2-839e-32e1e52e05ef"
+      }
+    }
+  },
+  "lists": {
+    "create_list": {
+      "httpMethod": "POST",
+      "path": "/users/631d4eb5-5ee4-43d2-839e-32e1e52e05ef/lists",
+      "pathParameters": {
+        "userId": "631d4eb5-5ee4-43d2-839e-32e1e52e05ef"
+      },
+      "body": "{\"name\": \"Groceries\", \"description\": \"Weekly shopping list\"}"
+    },
+    "get_lists_for_user": {
+      "httpMethod": "GET",
+      "path": "/users/631d4eb5-5ee4-43d2-839e-32e1e52e05ef/lists",
+      "pathParameters": {
+        "userId": "631d4eb5-5ee4-43d2-839e-32e1e52e05ef"
+      }
+    },
+    "get_list": {
+      "httpMethod": "GET",
+      "path": "/users/631d4eb5-5ee4-43d2-839e-32e1e52e05ef/lists/84789079-116e-403e-bcde-0120f30cb6e8",
+      "pathParameters": {
+        "userId": "631d4eb5-5ee4-43d2-839e-32e1e52e05ef",
+        "listId": "84789079-116e-403e-bcde-0120f30cb6e8"
+      }
+    },
+    "update_list": {
+      "httpMethod": "PUT",
+      "path": "/users/631d4eb5-5ee4-43d2-839e-32e1e52e05ef/lists/84789079-116e-403e-bcde-0120f30cb6e8",
+      "pathParameters": {
+        "userId": "631d4eb5-5ee4-43d2-839e-32e1e52e05ef",
+        "listId": "84789079-116e-403e-bcde-0120f30cb6e8"
+      },
+      "body": "{\"name\": \"Groceries Updated\", \"description\": \"Updated shopping list\", \"items\": {\"1\": {\"text\": \"Buy milk\", \"done\": false}, \"2\": {\"text\": \"Buy eggs\", \"done\": true}}}"
+    },
+    "toggle_item": {
+      "httpMethod": "PATCH",
+      "path": "/users/631d4eb5-5ee4-43d2-839e-32e1e52e05ef/lists/84789079-116e-403e-bcde-0120f30cb6e8/items/1",
+      "pathParameters": {
+        "userId": "631d4eb5-5ee4-43d2-839e-32e1e52e05ef",
+        "listId": "84789079-116e-403e-bcde-0120f30cb6e8",
+        "itemKey": "1"
+      }
+    },
+    "delete_list": {
+      "httpMethod": "DELETE",
+      "path": "/users/631d4eb5-5ee4-43d2-839e-32e1e52e05ef/lists/84789079-116e-403e-bcde-0120f30cb6e8",
+      "pathParameters": {
+        "userId": "631d4eb5-5ee4-43d2-839e-32e1e52e05ef",
+        "listId": "84789079-116e-403e-bcde-0120f30cb6e8"
+      }
+    }
+  }
+}
